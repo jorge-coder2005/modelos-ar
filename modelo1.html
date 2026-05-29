@@ -1,32 +1,231 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
   <meta charset="UTF-8">
-  <script type="module"
-    src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js">
-  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ver en AR</title>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <style>
-    body{
-      margin:0;
-      background:#000;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0a;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
-    model-viewer{
-      width:100vw;
-      height:100vh;
+
+    /* Barra superior */
+    .topbar {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      z-index: 10;
+    }
+    .topbar h1 {
+      color: #fff;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    .badge-device {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.5);
+    }
+    .badge-device.supported {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+    }
+
+    /* Visor */
+    model-viewer {
+      flex: 1;
+      width: 100%;
+      background: transparent;
+      --progress-bar-color: #6366f1;
+      --progress-mask: none;
+    }
+
+    /* Pantalla de carga */
+    #loading-screen {
+      position: absolute;
+      inset: 0;
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 20;
+      transition: opacity 0.4s ease;
+    }
+    #loading-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-top-color: #6366f1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-screen p {
+      color: rgba(255,255,255,0.4);
+      font-size: 13px;
+    }
+
+    /* Barra inferior */
+    .bottombar {
+      padding: 16px 20px 20px;
+      background: rgba(255,255,255,0.04);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+      text-align: center;
+    }
+
+    /* Botón AR */
+    #ar-btn {
+      display: none;
+      width: 100%;
+      padding: 14px;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.2s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #ar-btn:active { transform: scale(0.98); background: #4f46e5; }
+    #ar-btn svg { width: 20px; height: 20px; }
+
+    /* Mensaje no soportado */
+    #no-ar-msg {
+      display: none;
+      font-size: 12px;
+      color: rgba(255,255,255,0.3);
+      text-align: center;
+      padding: 8px;
     }
   </style>
 </head>
 <body>
+
+<div class="topbar">
+  <h1>Vista 3D</h1>
+  <span class="badge-device" id="device-badge">Detectando...</span>
+</div>
+
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p>Cargando modelo...</p>
+</div>
+
 <model-viewer
+  id="viewer"
   src="modelo1.glb"
   ar
   ar-modes="scene-viewer webxr quick-look"
+  ar-scale="auto"
   camera-controls
   auto-rotate
-  shadow-intensity="1">
-  <button slot="ar-button">
-    Ver en AR
-  </button>
+  auto-rotate-delay="1000"
+  rotation-per-second="20deg"
+  shadow-intensity="0.8"
+  exposure="1"
+  environment-image="neutral"
+  touch-action="pan-y">
 </model-viewer>
+
+<div class="bottombar">
+  <button id="ar-btn" slot="ar-button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/>
+      <path d="M12 8l4 2.5v5L12 18l-4-2.5v-5L12 8z"/>
+    </svg>
+    Ver en mi espacio
+  </button>
+  <p id="no-ar-msg">Tu dispositivo no soporta AR.<br>Puedes rotar el modelo con tu dedo.</p>
+  <p class="hint" id="hint-text">Toca y arrastra para rotar · Pellizca para hacer zoom</p>
+</div>
+
+<script>
+  const viewer = document.getElementById('viewer');
+  const arBtn = document.getElementById('ar-btn');
+  const loadingScreen = document.getElementById('loading-screen');
+  const deviceBadge = document.getElementById('device-badge');
+  const noArMsg = document.getElementById('no-ar-msg');
+  const hintText = document.getElementById('hint-text');
+
+  // Detectar dispositivo
+  const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/.test(ua);
+  const isAndroid = /Android/.test(ua);
+  const isMobile = isIOS || isAndroid;
+
+  if (isIOS) {
+    deviceBadge.textContent = 'iPhone / iPad';
+  } else if (isAndroid) {
+    deviceBadge.textContent = 'Android';
+  } else {
+    deviceBadge.textContent = 'Escritorio';
+    hintText.textContent = 'Clic y arrastra para rotar · Rueda para zoom';
+  }
+
+  // Cuando el modelo carga
+  viewer.addEventListener('load', () => {
+    loadingScreen.classList.add('hidden');
+
+    // Verificar soporte AR
+    if (viewer.canActivateAR) {
+      deviceBadge.classList.add('supported');
+      deviceBadge.textContent = (isIOS ? 'iPhone / iPad' : 'Android') + ' · AR listo';
+      arBtn.style.display = 'flex';
+
+      arBtn.addEventListener('click', () => {
+        viewer.activateAR();
+      });
+    } else {
+      if (isMobile) {
+        noArMsg.style.display = 'block';
+      } else {
+        noArMsg.textContent = 'AR disponible en dispositivos móviles.';
+        noArMsg.style.display = 'block';
+      }
+    }
+  });
+
+  // Error al cargar
+  viewer.addEventListener('error', () => {
+    loadingScreen.querySelector('p').textContent = 'No se pudo cargar el modelo.';
+    loadingScreen.querySelector('.spinner').style.display = 'none';
+  });
+</script>
+
 </body>
 </html>
